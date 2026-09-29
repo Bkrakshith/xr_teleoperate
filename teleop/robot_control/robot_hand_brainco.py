@@ -3,6 +3,7 @@ from unitree_sdk2py.idl.unitree_go.msg.dds_ import MotorCmds_, MotorStates_     
 from unitree_sdk2py.idl.default import unitree_go_msg_dds__MotorCmd_
 
 from teleop.robot_control.hand_retargeting import HandRetargeting, HandType
+from teleop.robot_control.brainco_retarget import brainco_retarget_dual
 import numpy as np
 from enum import IntEnum
 import threading
@@ -13,6 +14,7 @@ import logging_mp
 logger_mp = logging_mp.getLogger(__name__)
 
 brainco_Num_Motors = 6
+
 kTopicbraincoLeftCommand = "rt/brainco/left/cmd"
 kTopicbraincoLeftState = "rt/brainco/left/state"
 kTopicbraincoRightCommand = "rt/brainco/right/cmd"
@@ -281,31 +283,8 @@ class Brainco_Controller_hand:
                 state_data = np.concatenate((np.array(left_hand_state_array[:]), np.array(right_hand_state_array[:])))
 
                 if xr_motion_data_ready:
-                    ref_left_value = left_hand_data[self.hand_retargeting.left_indices[1,:]] - left_hand_data[self.hand_retargeting.left_indices[0,:]]
-                    ref_right_value = right_hand_data[self.hand_retargeting.right_indices[1,:]] - right_hand_data[self.hand_retargeting.right_indices[0,:]]
-
-                    left_q_target  = self.hand_retargeting.left_retargeting.retarget(ref_left_value)[self.hand_retargeting.left_dex_retargeting_to_hardware]
-                    right_q_target = self.hand_retargeting.right_retargeting.retarget(ref_right_value)[self.hand_retargeting.right_dex_retargeting_to_hardware]
-
-                    # In the official document, the angles are in the range [0, 1] ==> 0.0: fully open  1.0: fully closed
-                    # The q_target now is in radians, ranges:
-                    #     - idx 0:   0~1.52
-                    #     - idx 1:   0~1.05
-                    #     - idx 2~5: 0~1.47
-                    # We normalize them using (max - value) / range
-                    def normalize(val, min_val, max_val):
-                        return 1.0 - np.clip((max_val - val) / (max_val - min_val), 0.0, 1.0)
-
-                    for idx in range(brainco_Num_Motors):
-                        if idx == 0:
-                            left_q_target[idx]  = normalize(left_q_target[idx], 0.0, 1.52)
-                            right_q_target[idx] = normalize(right_q_target[idx], 0.0, 1.52)
-                        elif idx == 1:
-                            left_q_target[idx]  = normalize(left_q_target[idx], 0.0, 1.05)
-                            right_q_target[idx] = normalize(right_q_target[idx], 0.0, 1.05)
-                        elif idx >= 2:
-                            left_q_target[idx]  = normalize(left_q_target[idx], 0.0, 1.47)
-                            right_q_target[idx] = normalize(right_q_target[idx], 0.0, 1.47)
+                    # retarget + normalise to [0, 1] (0.0: fully open, 1.0: fully closed), see brainco_retarget_dual
+                    left_q_target, right_q_target = brainco_retarget_dual(self.hand_retargeting, left_hand_data, right_hand_data)
 
                 # get dual hand action
                 action_data = np.concatenate((left_q_target, right_q_target))    
