@@ -1,10 +1,19 @@
 import casadi                                                                       
-import meshcat.geometry as mg
+try:
+    import meshcat.geometry as mg
+except ImportError:  # only needed for Visualization=True
+    mg = None
 import numpy as np
 import pinocchio as pin                             
 import time
-from pinocchio import casadi as cpin    
-from pinocchio.visualize import MeshcatVisualizer   
+try:
+    from pinocchio import casadi as cpin
+except ImportError:  # pip `pin` wheels ship without CasADi bindings -> symbolic FK shim
+    from teleop.robot_control import casadi_kinematics as cpin
+try:
+    from pinocchio.visualize import MeshcatVisualizer
+except ImportError:
+    MeshcatVisualizer = None
 import os
 import sys
 import pickle
@@ -15,27 +24,62 @@ sys.path.append(parent2_dir)
 
 from teleop.utils.weighted_moving_filter import WeightedMovingFilter
 
+G1_29_ARM_JOINT_NAMES = [
+    "left_shoulder_pitch_joint", "left_shoulder_roll_joint", "left_shoulder_yaw_joint", "left_elbow_joint",
+    "left_wrist_roll_joint", "left_wrist_pitch_joint", "left_wrist_yaw_joint",
+    "right_shoulder_pitch_joint", "right_shoulder_roll_joint", "right_shoulder_yaw_joint", "right_elbow_joint",
+    "right_wrist_roll_joint", "right_wrist_pitch_joint", "right_wrist_yaw_joint",
+]
+
 class G1_29_ArmIK:
-    def __init__(self, Unit_Test = False, Visualization = False):
+    def __init__(self, Unit_Test = False, Visualization = False, urdf_path = None, cache_path = None):
+        """urdf_path: optional alternative G1 29-DoF URDF (e.g. Hospital_G1 robot/g1_29dof_brainco/urdf/
+        g1_29dof_brainco_ik.urdf). Every joint except the 14 arm joints is locked at 0 and only the
+        kinematic model is loaded (no meshes). Default: the upstream assets/g1 URDF, as before."""
         np.set_printoptions(precision=5, suppress=True, linewidth=200)
 
         self.Unit_Test = Unit_Test
         self.Visualization = Visualization
+        self.custom_urdf = urdf_path is not None
 
         # fixed cache file path
         self.cache_path = "g1_29_model_cache.pkl"
 
-        if not self.Unit_Test:
+        if self.custom_urdf:
+            import hashlib
+            self.urdf_path = os.path.abspath(urdf_path)
+            self.model_dir = os.path.dirname(self.urdf_path)
+            with open(self.urdf_path, "rb") as f:
+                digest = hashlib.sha1(f.read()).hexdigest()[:10]
+            self.cache_path = cache_path or f"g1_29_model_cache_{digest}.pkl"
+        elif not self.Unit_Test:
             self.urdf_path = '../assets/g1/g1_body29_hand14.urdf'
             self.model_dir = '../assets/g1/'
         else:
             self.urdf_path = '../../assets/g1/g1_body29_hand14.urdf'
             self.model_dir = '../../assets/g1/'
+        if cache_path is not None:
+            self.cache_path = cache_path
 
         # Try loading cache first
         if os.path.exists(self.cache_path) and (not self.Visualization):
             logger_mp.info(f"[G1_29_ArmIK] >>> Loading cached robot model: {self.cache_path}")
             self.robot, self.reduced_robot = self.load_cache()
+        elif self.custom_urdf:
+            logger_mp.info(f"[G1_29_ArmIK] >>> Loading URDF (kinematics only): {self.urdf_path}")
+            model = pin.buildModelFromUrdf(self.urdf_path)
+            self.robot = pin.RobotWrapper(model, pin.GeometryModel(), pin.GeometryModel())
+            self.mixed_jointsToLockIDs = [n for n in model.names[1:] if n not in G1_29_ARM_JOINT_NAMES]
+            self.reduced_robot = self.robot.buildReducedRobot(
+                list_of_joints_to_lock=self.mixed_jointsToLockIDs,
+                reference_configuration=np.zeros(model.nq),
+            )
+            for frame_name, joint_name in (('L_ee', 'left_wrist_yaw_joint'), ('R_ee', 'right_wrist_yaw_joint')):
+                self.reduced_robot.model.addFrame(
+                    pin.Frame(frame_name, self.reduced_robot.model.getJointId(joint_name),
+                              pin.SE3(np.eye(3), np.array([0.05, 0, 0]).T), pin.FrameType.OP_FRAME))
+            if not os.path.exists(self.cache_path):
+                self.save_cache()
         else:
             logger_mp.info("[G1_29_ArmIK] >>> Loading URDF (slow)...")
             self.robot = pin.RobotWrapper.BuildFromURDF(self.urdf_path, self.model_dir)
