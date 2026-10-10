@@ -37,11 +37,11 @@ HAND_EDGES = [(0, 1), (1, 2), (2, 3), (3, 4), (0, 5), (5, 6), (6, 7), (7, 8), (5
 
 
 def _import_obsbot():
-    """teleop/obsbot lives next to this fork in Hospital_G1; allow OBSBOT_PY_PATH override."""
+    """g1-webcam-teleop/obsbot lives next to this fork in Hospital_G1; allow OBSBOT_PY_PATH override."""
     candidates = [os.environ.get("OBSBOT_PY_PATH", "")]
     root = os.environ.get("HG1_ROOT")
     if root:
-        candidates.append(os.path.join(root, "teleop", "obsbot"))
+        candidates.append(os.path.join(root, "g1-webcam-teleop", "obsbot"))
     candidates.append(os.path.abspath(os.path.join(HERE, "..", "..", "..", "obsbot")))
     for c in candidates:
         if c and os.path.isdir(os.path.join(c, "obsbot_ptz")) and c not in sys.path:

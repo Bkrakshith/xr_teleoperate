@@ -5,7 +5,7 @@ import numpy as np
 # Normalisation of the retargeted joint angles to BrainCo's 0 (open) .. 1 (closed) command.
 # Retarget output order (hand_retargeting.py): thumb_metacarpal (abduction/rotation),
 # thumb_proximal (flexion), index, middle, ring, pinky proximal.
-# Revo2 ranges from BrainCo's documentation (Hospital_G1 robot/robot_spec.json):
+# Revo2 ranges from BrainCo's documentation (Hospital_G1 g1-brainco-description/g1_29dof_brainco/robot_spec.json):
 # thumb_metacarpal 0-1.553, thumb_proximal 0-1.047, fingers 0-1.41 rad.
 # (Upstream used 1.52 / 1.05 / 1.47, the joint limits of the older BrainCo hand URDF.)
 BRAINCO_RETARGET_RANGES = np.array([1.553, 1.047, 1.41, 1.41, 1.41, 1.41])

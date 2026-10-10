@@ -53,7 +53,7 @@ RECORD_TOGGLE  = False  # Toggle recording state
 #  --> auto  : Auto-transition after saving data.
 
 def resolve_ik_urdf(opt: str, prefer_hospital: bool):
-    """'upstream' -> None (assets/g1); 'auto' -> Hospital_G1 robot/ IK URDF when present and preferred."""
+    """'upstream' -> None (assets/g1); 'auto' -> Hospital_G1 g1-brainco-description/ IK URDF when present and preferred."""
     if opt == 'upstream':
         return None
     if opt != 'auto':
@@ -61,7 +61,7 @@ def resolve_ik_urdf(opt: str, prefer_hospital: bool):
     if not prefer_hospital:
         return None
     root = os.environ.get('HG1_ROOT', os.path.abspath(os.path.join(parent_dir, '..', '..')))
-    udir = os.path.join(root, 'robot', 'g1_29dof_brainco', 'urdf')
+    udir = os.path.join(root, 'g1-brainco-description', 'g1_29dof_brainco', 'urdf')
     for name in ('g1_29dof_brainco_ik.urdf', 'g1_29dof_brainco.urdf'):
         p = os.path.join(udir, name)
         if os.path.isfile(p):
@@ -124,7 +124,7 @@ if __name__ == '__main__':
     parser.add_argument('--pose-model', type=str, choices=['lite', 'full', 'heavy'], default='full', help='MediaPipe pose model')
     parser.add_argument('--no-framing', action='store_true', help='webcam: disable OBSBOT auto-framing')
     parser.add_argument('--no-window', action='store_true', help='webcam: no OpenCV window (annotated stream still published on ros2)')
-    parser.add_argument('--ik-urdf', type=str, default='auto', help="G1_29 IK model: 'auto' (Hospital_G1 robot/ IK URDF for ros2/none backends if present), 'upstream', or a path")
+    parser.add_argument('--ik-urdf', type=str, default='auto', help="G1_29 IK model: 'auto' (Hospital_G1 g1-brainco-description/ IK URDF for ros2/none backends if present), 'upstream', or a path")
     parser.add_argument('--use-sim-time', action='store_true', help='ros2 backend: use /clock')
     parser.add_argument('--auto-start', action='store_true', help='start following without pressing [r] (default for ros2 and dry-run)')
     parser.add_argument('--idle-when-not-manip', action='store_true', help='ros2 backend: lower the tracking rate while /g1/mode is not MANIP')
